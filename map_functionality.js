@@ -2,8 +2,7 @@
   document.addEventListener("DOMContentLoaded", () => {
     const width = 960;
     const height = 600;
-    const usDataUrl = "https://your-hosting-url/usData.json"; // Replace with actual data URL
-    const congressDataUrl = "https://your-hosting-url/congressData.json"; // Replace with actual data URL
+    const mapDataUrl = "https://rcpope.github.io/map-resources/map_path_data_geojson.json";
     let filter = "";
 
     const svg = d3.select("body")
@@ -92,22 +91,18 @@
 
     const loadData = async () => {
       try {
-        const [usData, congressData] = await Promise.all([
-          d3.json(usDataUrl).catch(err => {
-            console.error("Failed to load US data:", err);
-            throw err;
-          }),
-          d3.json(congressDataUrl).catch(err => {
-            console.error("Failed to load Congress data:", err);
-            throw err;
-          }),
-        ]);
+        const mapData = await d3.json(mapDataUrl);
 
-        svg.selectAll("*").remove(); // Clear existing content
+        // Clear existing content
+        svg.selectAll("*").remove();
 
-        const states = topojson.feature(usData, usData.objects.states).features;
-        const districts = topojson.feature(congressData, congressData.objects.districts).features;
+        const features = mapData.features; // Adjust depending on GeoJSON structure
 
+        // Filter states and districts if needed
+        const states = features.filter(d => d.properties.type === "state");
+        const districts = features.filter(d => d.properties.type === "district");
+
+        // Render states
         renderFeatures(svg, states, {
           className: "state",
           fill: "#ccc",
@@ -118,6 +113,7 @@
           onClick: handleClick,
         });
 
+        // Render districts
         renderFeatures(svg, districts, {
           className: "district",
           fill: d => generateColor(d.properties.id),
@@ -128,7 +124,7 @@
           onClick: handleClick,
         });
       } catch (error) {
-        console.error("Error loading data:", error);
+        console.error("Error loading map data:", error);
       }
     };
 
