@@ -4,7 +4,7 @@
     const height = 600;
 
     // Add URLs for state and district maps
-    const stateMapUrl = "https://rcpope.github.io/map-resources/congress_map.geojson";
+    const stateMapUrl = "https://rcpope.github.io/map-resources/congressional_map.geojson";
     const districtMapUrl = "https://rcpope.github.io/map-resources/neilson_map.geojson";
 
     let currentMapUrl = stateMapUrl; // Default to state map
