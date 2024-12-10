@@ -1,51 +1,62 @@
 (() => {
   // ==============================
-// Global Variables and Constants
-// ==============================
-const width = 960, height = 600;
-const stateMapUrl = "https://rcpope.github.io/map-resources/congressional_map.geojson";
-const districtMapUrl = "https://rcpope.github.io/map-resources/neilson_map.geojson";
+  // Global Variables and Constants
+  // ==============================
+  const width = 960,
+    height = 600;
+  const stateMapUrl = "https://rcpope.github.io/map-resources/congressional_map.geojson";
+  const districtMapUrl = "https://rcpope.github.io/map-resources/neilson_map.geojson";
 
-let currentMapUrl = stateMapUrl; // Default map URL
-let filter = ""; // Filter term for search
+  let currentMapType = "state"; // Default map type
+  let originalFeatures = []; // Global storage for loaded features
+  let filter = ""; // Filter term for search
 
-// ========================
-// Projection and Geo Path
-// ========================
-const projection = d3.geoAlbersUsa();
-const path = d3.geoPath().projection(projection);
+  // ========================
+  // Projection and Geo Path
+  // ========================
+  const projection = d3.geoAlbersUsa();
+  const path = d3.geoPath().projection(projection);
 
-// ======================
-// Initialize SVG Element
-// ======================
-const svg = d3
-  .select("#map-container")
-  .append("input")
+  // ======================
+  // Initialize SVG Element
+  // ======================
+  const svg = d3
+    .select("#map-container")
+    .append("svg")
+    .attr("width", width)
+    .attr("height", height);
+
+  // ======================
+  // Initialize Input Box
+  // ======================
+  const inputBox = d3
+    .select("body")
+    .append("input")
     .attr("type", "text")
     .attr("placeholder", "Filter by state or district")
-    .style("margin", "10px")
+    .style("margin-bottom", "10px")
     .style("padding", "5px")
-    .style("width", "90%")
+    .style("width", "100%")
     .on("input", function () {
-        filter = this.value.toLowerCase();
-        loadData();
+      filter = this.value.toLowerCase();
+      loadData(); // Call loadData() to apply the filter
     });
 
-// =========================
-// Adjust Projection to Fit
-// =========================
-const adjustProjectionToFit = (geojsonData) => {
-  const bounds = path.bounds(geojsonData); // Calculate bounds
-  const scale = 0.95 / Math.max(
-    (bounds[1][0] - bounds[0][0]) / width,
-    (bounds[1][1] - bounds[0][1]) / height
-  );
-  const translate = [
-    (width - scale * (bounds[1][0] + bounds[0][0])) / 2,
-    (height - scale * (bounds[1][1] + bounds[0][1])) / 2
-  ];
-  projection.scale(scale).translate(translate);
-};
+  // =========================
+  // Adjust Projection to Fit
+  // =========================
+  const adjustProjectionToFit = (geojsonData) => {
+    const bounds = path.bounds(geojsonData); // Calculate bounds
+    const scale = 0.95 / Math.max(
+      (bounds[1][0] - bounds[0][0]) / width,
+      (bounds[1][1] - bounds[0][1]) / height
+    );
+    const translate = [
+      (width - scale * (bounds[1][0] + bounds[0][0])) / 2,
+      (height - scale * (bounds[1][1] + bounds[0][1])) / 2,
+    ];
+    projection.scale(scale).translate(translate);
+  };
 
   // ==================
   // Tooltip Management
@@ -63,11 +74,16 @@ const adjustProjectionToFit = (geojsonData) => {
     const pageX = event.pageX || (event.touches && event.touches[0]?.pageX);
     const pageY = event.pageY || (event.touches && event.touches[0]?.pageY);
 
+    const tooltipWidth = tooltip.node().offsetWidth;
+    const tooltipHeight = tooltip.node().offsetHeight;
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+
     tooltip
+      .style("left", Math.min(pageX + 10, windowWidth - tooltipWidth) + "px")
+      .style("top", Math.min(pageY - 20, windowHeight - tooltipHeight) + "px")
       .style("visibility", "visible")
-      .html(content)
-      .style("top", `${pageY - 20}px`)
-      .style("left", `${pageX + 10}px`);
+      .html(content);
   };
 
   const hideTooltip = () => {
@@ -77,136 +93,82 @@ const adjustProjectionToFit = (geojsonData) => {
   // ========================
   // Feature Rendering Logic
   // ========================
-  const renderFeatures = (features, options = {}) => {
+  const renderFeatures = (features) => {
     svg.selectAll("*").remove(); // Clear existing map content
 
     svg
       .append("g")
+      .attr("class", "map-group")
       .selectAll("path")
       .data(features)
       .enter()
       .append("path")
-      .attr("class", options.className || "feature")
       .attr("d", path)
       .attr("fill", (d) => {
-          const fillColor = options.fill(d);
-          d3.select(this).attr("data-original-fill", fillColor); // Set original fill
-          return fillColor;
+        const fillColor = d.properties.fill || "#ccc";
+        d3.select(this).attr("data-original-fill", fillColor); // Set original fill
+        return fillColor;
       })
-      .attr("stroke", options.stroke || "#333")
-      .on("mouseover", options.onMouseOver || null)
-      .on("mouseout", options.onMouseOut || null)
-      .on("click", options.onClick || null);
-};
-
-  // ==========================
-  // Event Handlers for Map Data
-  // ==========================
-  const handleMouseOver = (event, d) => {
-    const name = d.properties.name || d.properties.id || "Unknown";
-    d3.select(event.target).attr("fill", "orange");
-    showTooltip(`<strong>${name}</strong>`, event);
-  };
-
-  const handleMouseOut = (event) => {
-    const element = d3.select(event.target);
-    const originalFill = element.attr("data-original-fill") || "#ccc";
-    element.attr("fill", originalFill);
-    hideTooltip();
-  };
-
-  const handleClick = (event, d) => {
-    if (!d.properties) {
-      console.error("Missing properties in GeoJSON data", d);
-      return;
-    }
-
-    const stateCd = d.properties.stateCd || d.properties.state || "Unknown";
-    const district = d.properties.district || d.properties.id || "Unknown";
-    const id = d.properties.id || "Unknown";
-    const lgu = d.properties.name || "Unknown";
-
-    console.log(`Clicked on: StateCd=${stateCd}, District=${district}, ID=${id}, LGU=${lgu}`);
-    showDistrictDetails(stateCd, district, id, lgu);
+      .attr("stroke", "#333")
+      .on("mouseover", function (event, d) {
+        d3.select(this).attr("fill", "orange");
+        showTooltip(d.properties.name || "Unknown", event);
+      })
+      .on("mouseout", function () {
+        d3.select(this).attr("fill", d3.select(this).attr("data-original-fill"));
+        hideTooltip();
+      })
+      .on("click", (event, d) => {
+        console.log(`Clicked on: ${d.properties.name || "Unknown"}`);
+      });
   };
 
   // =======================
   // Map Data Loading Logic
   // =======================
-    const loadData = async () => {
-    try {
-      const mapData = await d3.json(currentMapUrl);
-      adjustProjectionToFit(mapData); // Adjust projection dynamically
-
-      const features = mapData.features || [];
-      const options = currentMapUrl === stateMapUrl
-        ? { className: "state", fill: () => "#ccc", onMouseOver: handleMouseOver, onMouseOut: handleMouseOut, onClick: handleClick }
-        : { className: "district", fill: (d) => `hsl(${Math.random() * 360}, 50%, 70%)`, onMouseOver: handleMouseOver, onMouseOut: handleMouseOut, onClick: handleClick };
-
-      renderFeatures(features, options);
-    } catch (error) {
-      console.error("Error loading map data:", error);
-    }
+  const loadData = () => {
+    const filteredFeatures = originalFeatures.filter((f) =>
+      f.properties.name.toLowerCase().includes(filter)
+    );
+    renderFeatures(filteredFeatures);
   };
 
-  // ===================
-  // Dropdown Management
-  // ===================
-  const populateDropdown = (dropdown, data, type) => {
-    dropdown.innerHTML = `<option disabled selected>Select a ${type}</option>`;
-    data.forEach((item) => {
-      const option = document.createElement("option");
-      option.value = item.properties.id;
-      option.textContent = `${type} ${item.properties.id}`;
-      dropdown.appendChild(option);
+  const loadMap = (type) => {
+    d3.json(type === "state" ? stateMapUrl : districtMapUrl, (error, data) => {
+      if (error) throw error;
+
+      const features =
+        type === "state" ? data.features : topojson.feature(data, data.objects.nielsen_dma).features;
+
+      originalFeatures = features; // Store features globally for filtering
+      adjustProjectionToFit({ type: "FeatureCollection", features });
+      renderFeatures(features);
     });
-    dropdown.disabled = false;
   };
 
   // ==============================
-// Map Functionality
-// ==============================
-document.addEventListener("DOMContentLoaded", () => {
-    // Map Type Toggle Buttons
+  // Map Functionality
+  // ==============================
+  document.addEventListener("DOMContentLoaded", () => {
     const stateButton = document.getElementById("stateButton");
     const districtButton = document.getElementById("districtButton");
 
     if (stateButton && districtButton) {
-        stateButton.addEventListener("click", () => {
-            if (currentMapUrl !== stateMapUrl) {
-                currentMapUrl = stateMapUrl;
-                stateButton.classList.add("active");
-                districtButton.classList.remove("active");
-                loadData();
-            }
-        });
-
-        districtButton.addEventListener("click", () => {
-            if (currentMapUrl !== districtMapUrl) {
-                currentMapUrl = districtMapUrl;
-                districtButton.classList.add("active");
-                stateButton.classList.remove("active");
-                loadData();
-            }
-        });
+      stateButton.addEventListener("click", () => toggleMap("state", stateButton, districtButton));
+      districtButton.addEventListener("click", () => toggleMap("dma", districtButton, stateButton));
     } else {
-        console.error("State or District button not found in the DOM.");
+      console.error("State or District button not found in the DOM.");
     }
 
-    // Filter Functionality
-    d3.select("body")
-        .append("input")
-        .attr("type", "text")
-        .attr("placeholder", "Filter by state or district")
-        .style("margin-bottom", "10px")
-        .style("padding", "5px")
-        .style("width", "100%")
-        .on("input", function () {
-            filter = this.value.toLowerCase();
-            loadData();
-        });
+    loadMap("state"); // Load initial map
+  });
 
-    // Initial Map Load
-    setupDistrictDetailBoxes(); // Ensure this function is defined in district-details.js
-    loadData();
-});
+  const toggleMap = (type, activeButton, inactiveButton) => {
+    if (currentMapType !== type) {
+      currentMapType = type;
+      loadMap(type);
+      activeButton.classList.add("active");
+      inactiveButton.classList.remove("active");
+    }
+  };
+})();
