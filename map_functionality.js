@@ -138,47 +138,50 @@
     dropdown.disabled = false;
   };
 
-  // =======================
-  // Map Type Toggle Buttons
-  // =======================
-  document.getElementById("stateButton").addEventListener("click", () => {
-    if (currentMapUrl !== stateMapUrl) {
-      currentMapUrl = stateMapUrl;
-      document.getElementById("stateButton").classList.add("active");
-      document.getElementById("districtButton").classList.remove("active");
-      loadData();
+  // ==============================
+// Map Functionality
+// ==============================
+document.addEventListener("DOMContentLoaded", () => {
+    // Map Type Toggle Buttons
+    const stateButton = document.getElementById("stateButton");
+    const districtButton = document.getElementById("districtButton");
+
+    if (stateButton && districtButton) {
+        stateButton.addEventListener("click", () => {
+            if (currentMapUrl !== stateMapUrl) {
+                currentMapUrl = stateMapUrl;
+                stateButton.classList.add("active");
+                districtButton.classList.remove("active");
+                loadData();
+            }
+        });
+
+        districtButton.addEventListener("click", () => {
+            if (currentMapUrl !== districtMapUrl) {
+                currentMapUrl = districtMapUrl;
+                districtButton.classList.add("active");
+                stateButton.classList.remove("active");
+                loadData();
+            }
+        });
+    } else {
+        console.error("State or District button not found in the DOM.");
     }
-  });
 
-  document.getElementById("districtButton").addEventListener("click", () => {
-    if (currentMapUrl !== districtMapUrl) {
-      currentMapUrl = districtMapUrl;
-      document.getElementById("districtButton").classList.add("active");
-      document.getElementById("stateButton").classList.remove("active");
-      loadData();
-    }
-  });
+    // Filter Functionality
+    d3.select("body")
+        .append("input")
+        .attr("type", "text")
+        .attr("placeholder", "Filter by state or district")
+        .style("margin-bottom", "10px")
+        .style("padding", "5px")
+        .style("width", "100%")
+        .on("input", function () {
+            filter = this.value.toLowerCase();
+            loadData();
+        });
 
-  // =================
-  // Filter Functionality
-  // =================
-  d3.select("body")
-    .append("input")
-    .attr("type", "text")
-    .attr("placeholder", "Filter by state or district")
-    .style("margin-bottom", "10px")
-    .style("padding", "5px")
-    .style("width", "100%")
-    .on("input", function () {
-      filter = this.value.toLowerCase();
-      loadData();
-    });
-
-  // =====================
-  // Initial Map Load
-  // =====================
-  document.addEventListener("DOMContentLoaded", () => {
-    setupDistrictDetailBoxes(); // Ensure this function is defined
+    // Initial Map Load
+    setupDistrictDetailBoxes(); // Ensure this function is defined in district-details.js
     loadData();
-  });
-})();
+});
