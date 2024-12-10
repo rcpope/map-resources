@@ -4,8 +4,8 @@
   // ==============================
   const width = 960,
     height = 600;
-  const stateMapUrl = "https://rcpope.github.io/map-resources/congressional_map.json";
-  const districtMapUrl = "https://rcpope.github.io/map-resources/dma_map.json";
+  const stateMapUrl = "https://rcpope.github.io/map-resources/congressional_map.geojson";
+  const districtMapUrl = "https://rcpope.github.io/map-resources/neilson_map.geojson";
 
   let currentMapType = "state"; // Default map type
   let originalFeatures = []; // Global storage for loaded features
@@ -30,47 +30,49 @@
   // Adjust Projection to Fit
   // =========================
   const adjustProjectionToFit = (geojsonData) => {
-    const bounds = path.bounds(geojsonData); // Calculate bounds
-    const scale = 0.95 / Math.max(
-      (bounds[1][0] - bounds[0][0]) / width,
-      (bounds[1][1] - bounds[0][1]) / height
-    );
-    const translate = [
-      (width - scale * (bounds[1][0] + bounds[0][0])) / 2,
-      (height - scale * (bounds[1][1] + bounds[0][1])) / 2,
-    ];
-    projection.scale(scale).translate(translate);
-  };
+  const bounds = path.bounds(geojsonData); // Calculate map bounds
+  const scale = 0.95 / Math.max(
+    (bounds[1][0] - bounds[0][0]) / width,
+    (bounds[1][1] - bounds[0][1]) / height
+  );
+  const translate = [
+    (width - scale * (bounds[1][0] + bounds[0][0])) / 2,
+    (height - scale * (bounds[1][1] + bounds[0][1])) / 2
+  ];
+  projection.scale(scale).translate(translate); // Update projection
+};
 
   // ========================
   // Feature Rendering Logic
   // ========================
   const renderFeatures = (features) => {
-    svg.selectAll("*").remove(); // Clear existing map content
+  svg.selectAll("*").remove(); // Clear existing map content
 
-    svg
-      .append("g")
-      .attr("class", "map-group")
-      .selectAll("path")
-      .data(features)
-      .enter()
-      .append("path")
-      .attr("d", path)
-      .attr("fill", (d) => {
-        const fillColor = d.properties.fill || "#ccc";
-        d3.select(this).attr("data-original-fill", fillColor); // Save original fill
-        return fillColor;
-      })
-      .attr("stroke", "#333")
-      .on("mouseover", function (event, d) {
-        d3.select(this).attr("fill", "orange");
-        showTooltip(d.properties.name || "Unknown", event);
-      })
-      .on("mouseout", function () {
-        d3.select(this).attr("fill", d3.select(this).attr("data-original-fill"));
-        hideTooltip();
-      });
-  };
+  svg
+    .append("g")
+    .attr("class", "map-group")
+    .selectAll("path")
+    .data(features)
+    .enter()
+    .append("path")
+    .attr("d", path)
+    .attr("fill", "#ccc")
+    .attr("stroke", "#333")
+    .on("mouseover", (event, d) => {
+      d3.select(event.target).attr("fill", "orange");
+      showTooltip(d.properties.name || "Unknown", event); // Show tooltip
+    })
+    .on("mouseout", (event) => {
+      d3.select(event.target).attr("fill", "#ccc"); // Reset fill color
+      hideTooltip(); // Hide tooltip
+    })
+    .on("click", (event, d) => {
+      if (d.properties) {
+        const { stateCd, district, id, name } = d.properties;
+        showDistrictDetails(stateCd || "Unknown", district || id || "Unknown", id || "Unknown", name || "Unknown");
+      }
+    });
+};
 
   // =======================
   // Map Data Loading Logic
@@ -83,30 +85,27 @@
   };
 
   const loadMap = (type) => {
-    const url = type === "state" ? stateMapUrl : districtMapUrl;
+  const url = type === "state" ? stateMapUrl : districtMapUrl;
 
-    d3.json(url)
-      .then((data) => {
-        const features =
-          type === "state"
-            ? data.features
-            : topojson.feature(data, data.objects.nielsen_dma).features;
+  d3.json(url)
+    .then((data) => {
+      const features = data.features; // Access GeoJSON features directly
 
-        if (!features) {
-          console.error("Features could not be extracted from the map data.");
-          return;
-        }
+      if (!features) {
+        console.error("Features could not be extracted from the map data.");
+        return;
+      }
 
-        originalFeatures = features;
-        adjustProjectionToFit({ type: "FeatureCollection", features });
-        renderFeatures(features);
+      originalFeatures = features; // Save the loaded features globally
+      adjustProjectionToFit({ type: "FeatureCollection", features }); // Adjust projection dynamically
+      renderFeatures(features); // Render features on the map
 
-        console.log(`Loaded ${type} map successfully.`);
-      })
-      .catch((error) => {
-        console.error("Error loading map data:", error);
-      });
-  };
+      console.log(`Loaded ${type === "state" ? "state map" : "district map"} successfully.`);
+    })
+    .catch((error) => {
+      console.error("Error loading map data:", error);
+    });
+};
 
   // ==============================
   // Map Functionality
