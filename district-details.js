@@ -85,26 +85,65 @@ const handleClick = (event, d) => {
     showDistrictDetails(stateCd, district, id, lgu);
 };
 
-/**
+    /**
  * Sets up the district detail lightbox for displaying information.
  */
 const setupDistrictDetailBoxes = () => {
-    const outerContainer = d3
-        .select(".outer-container")
-        .append("div")
-        .attr("id", "lightbox")
-        .style("display", "none");
+    // Check if lightbox already exists
+    let outerContainer = d3.select("#lightbox");
+    if (!outerContainer.node()) {
+        outerContainer = d3
+            .select(".outer-container")
+            .append("div")
+            .attr("id", "lightbox")
+            .style("display", "none")
+            .style("position", "fixed")
+            .style("top", "50%")
+            .style("left", "50%")
+            .style("transform", "translate(-50%, -50%)")
+            .style("z-index", "1000")
+            .style("background-color", "rgba(255, 255, 255, 0.95)")
+            .style("padding", "20px")
+            .style("border-radius", "8px")
+            .style("box-shadow", "0px 4px 15px rgba(0, 0, 0, 0.3)");
+    }
 
-    const tablesContainer = outerContainer.append("div").attr("id", "tables-container");
+    // Check if tables-container exists
+    let tablesContainer = outerContainer.select("#tables-container");
+    if (!tablesContainer.node()) {
+        tablesContainer = outerContainer.append("div").attr("id", "tables-container");
+    }
 
-    // Title row
-    tablesContainer.append("div").attr("id", "title-row");
+    // Check if title-row exists
+    if (!tablesContainer.select("#title-row").node()) {
+        tablesContainer.append("div").attr("id", "title-row");
+    }
 
-    // Grant table container
-    tablesContainer
-        .append("div")
-        .attr("class", "grant-table-container grant-details")
-        .html("<b>This box is for Grant Details...</b>");
+    // Check if grant-table-container exists
+    if (!tablesContainer.select(".grant-table-container").node()) {
+        tablesContainer
+            .append("div")
+            .attr("class", "grant-table-container grant-details")
+            .html(""); // Start with an empty container for dynamic content
+    }
+
+    // Add Close Button if not present
+    if (!outerContainer.select(".close-lightbox").node()) {
+        outerContainer
+            .append("button")
+            .attr("class", "close-lightbox")
+            .text("Close")
+            .style("margin-top", "10px")
+            .style("padding", "8px 16px")
+            .style("border", "none")
+            .style("border-radius", "4px")
+            .style("background-color", "#007BFF")
+            .style("color", "#fff")
+            .style("cursor", "pointer")
+            .on("click", () => {
+                d3.select("#lightbox").style("display", "none"); // Hide lightbox
+            });
+    }
 
     // Prevent clicks inside the container from closing the lightbox
     d3.select("#tables-container").on("click", (event) => event.stopPropagation());
