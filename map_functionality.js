@@ -46,31 +46,34 @@
   // Feature Rendering Logic
   // ========================
   const renderFeatures = (features) => {
-  svg.selectAll("*").remove(); // Clear existing map content
+    svg.selectAll("*").remove(); // Clear existing map content
 
-  svg
-    .append("g")
-    .attr("class", "map-group")
-    .selectAll("path")
-    .data(features)
-    .enter()
-    .append("path")
-    .attr("d", path)
-    .attr("fill", (d) => d.properties.fill || "#ccc") // Set fill color
-    .each(function (d) {
-      const fillColor = d.properties.fill || "#ccc";
-      d3.select(this).attr("data-original-fill", fillColor); // Save original fill
-    })
-    .attr("stroke", "#333") // Set stroke color
-    .on("mouseover", (event, d) => {
-      d3.select(event.target).attr("fill", "orange");
-      showTooltip(d.properties.name || "Unknown", event); // Show tooltip
-    })
-    .on("mouseout", (event) => {
-      d3.select(event.target).attr("fill", d3.select(event.target).attr("data-original-fill")); // Reset fill color
-      hideTooltip(); // Hide tooltip
-    })
-    .on("click", (event, d) => {
+    svg
+        .append("g")
+        .attr("class", "map-group")
+        .selectAll("path")
+        .data(features)
+        .enter()
+        .append("path")
+        .attr("d", path)
+        .attr("fill", (d) => {
+            const fillColor = d.properties.fill || "#ccc";
+            return fillColor; // Set the fill color
+        })
+        .attr("stroke", "#333")
+        .each(function (d) {
+            const fillColor = d.properties.fill || "#ccc";
+            d3.select(this).attr("data-original-fill", fillColor); // Correctly reference the current element
+        })
+        .on("mouseover", function (event, d) {
+            d3.select(this).attr("fill", "orange");
+            showTooltip(d.properties.name || "Unknown", event);
+        })
+        .on("mouseout", function () {
+            d3.select(this).attr("fill", d3.select(this).attr("data-original-fill"));
+            hideTooltip();
+        })
+        .on("click", (event, d) => {
       if (d.properties) {
         const { stateCd, district, id, name } = d.properties;
         showDistrictDetails(
