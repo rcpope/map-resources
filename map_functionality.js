@@ -4,8 +4,8 @@
   // ==============================
   const width = 960,
     height = 600;
-  const stateMapUrl = "https://rcpope.github.io/map-resources/congressional_map.json";
-  const districtMapUrl = "https://rcpope.github.io/map-resources/dma_map.json";
+  const stateMapUrl = "https://rcpope.github.io/map-resources/congressional_map.geojson";
+  const districtMapUrl = "https://rcpope.github.io/map-resources/neilson_map.geojson";
 
   let currentMapType = "state"; // Default map type
   let originalFeatures = []; // Global storage for loaded features
@@ -51,10 +51,12 @@
       (bounds[1][0] - bounds[0][0]) / width,
       (bounds[1][1] - bounds[0][1]) / height
     );
+    console.log("Scale:", scale); // Debugging scale
     const translate = [
       (width - scale * (bounds[1][0] + bounds[0][0])) / 2,
       (height - scale * (bounds[1][1] + bounds[0][1])) / 2,
     ];
+    console.log("Translate:", translate); // Debugging translate
     projection.scale(scale).translate(translate);
   };
 
@@ -74,14 +76,9 @@
     const pageX = event.pageX || (event.touches && event.touches[0]?.pageX);
     const pageY = event.pageY || (event.touches && event.touches[0]?.pageY);
 
-    const tooltipWidth = tooltip.node().offsetWidth;
-    const tooltipHeight = tooltip.node().offsetHeight;
-    const windowWidth = window.innerWidth;
-    const windowHeight = window.innerHeight;
-
     tooltip
-      .style("left", Math.min(pageX + 10, windowWidth - tooltipWidth) + "px")
-      .style("top", Math.min(pageY - 20, windowHeight - tooltipHeight) + "px")
+      .style("left", `${pageX + 10}px`)
+      .style("top", `${pageY - 20}px`)
       .style("visibility", "visible")
       .html(content);
   };
@@ -104,11 +101,7 @@
       .enter()
       .append("path")
       .attr("d", path)
-      .attr("fill", (d) => {
-        const fillColor = d.properties.fill || "#ccc";
-        d3.select(this).attr("data-original-fill", fillColor); // Set original fill
-        return fillColor;
-      })
+      .attr("fill", (d) => d.properties.fill || "#ccc")
       .attr("stroke", "#333")
       .on("mouseover", function (event, d) {
         d3.select(this).attr("fill", "orange");
@@ -117,9 +110,6 @@
       .on("mouseout", function () {
         d3.select(this).attr("fill", d3.select(this).attr("data-original-fill"));
         hideTooltip();
-      })
-      .on("click", (event, d) => {
-        console.log(`Clicked on: ${d.properties.name || "Unknown"}`);
       });
   };
 
@@ -135,14 +125,19 @@
 
   const loadMap = (type) => {
     d3.json(type === "state" ? stateMapUrl : districtMapUrl, (error, data) => {
-      if (error) throw error;
+      if (error) {
+        console.error("Error loading map data:", error);
+        return;
+      }
 
       const features =
         type === "state" ? data.features : topojson.feature(data, data.objects.nielsen_dma).features;
 
-      originalFeatures = features; // Store features globally for filtering
+      originalFeatures = features;
       adjustProjectionToFit({ type: "FeatureCollection", features });
       renderFeatures(features);
+
+      console.log(`Loading ${type === "state" ? "state map" : "DMA map"}...`);
     });
   };
 
@@ -156,11 +151,9 @@
     if (stateButton && districtButton) {
       stateButton.addEventListener("click", () => toggleMap("state", stateButton, districtButton));
       districtButton.addEventListener("click", () => toggleMap("dma", districtButton, stateButton));
-    } else {
-      console.error("State or District button not found in the DOM.");
     }
 
-    loadMap("state"); // Load initial map
+    loadMap("state");
   });
 
   const toggleMap = (type, activeButton, inactiveButton) => {
