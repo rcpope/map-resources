@@ -56,20 +56,29 @@
     .enter()
     .append("path")
     .attr("d", path)
-    .attr("fill", "#ccc")
-    .attr("stroke", "#333")
+    .attr("fill", (d) => d.properties.fill || "#ccc") // Set fill color
+    .each(function (d) {
+      const fillColor = d.properties.fill || "#ccc";
+      d3.select(this).attr("data-original-fill", fillColor); // Save original fill
+    })
+    .attr("stroke", "#333") // Set stroke color
     .on("mouseover", (event, d) => {
       d3.select(event.target).attr("fill", "orange");
       showTooltip(d.properties.name || "Unknown", event); // Show tooltip
     })
     .on("mouseout", (event) => {
-      d3.select(event.target).attr("fill", "#ccc"); // Reset fill color
+      d3.select(event.target).attr("fill", d3.select(event.target).attr("data-original-fill")); // Reset fill color
       hideTooltip(); // Hide tooltip
     })
     .on("click", (event, d) => {
       if (d.properties) {
         const { stateCd, district, id, name } = d.properties;
-        showDistrictDetails(stateCd || "Unknown", district || id || "Unknown", id || "Unknown", name || "Unknown");
+        showDistrictDetails(
+          stateCd || "Unknown",
+          district || id || "Unknown",
+          id || "Unknown",
+          name || "Unknown"
+        );
       }
     });
 };
