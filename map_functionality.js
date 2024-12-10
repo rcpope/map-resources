@@ -26,22 +26,6 @@
     .attr("width", width)
     .attr("height", height);
 
-  // ======================
-  // Initialize Input Box
-  // ======================
-  const inputBox = d3
-    .select("body")
-    .append("input")
-    .attr("type", "text")
-    .attr("placeholder", "Filter by state or district")
-    .style("margin-bottom", "10px")
-    .style("padding", "5px")
-    .style("width", "100%")
-    .on("input", function () {
-      filter = this.value.toLowerCase();
-      loadData(); // Call loadData() to apply the filter
-    });
-
   // =========================
   // Adjust Projection to Fit
   // =========================
@@ -51,13 +35,101 @@
       (bounds[1][0] - bounds[0][0]) / width,
       (bounds[1][1] - bounds[0][1]) / height
     );
-    console.log("Scale:", scale); // Debugging scale
     const translate = [
       (width - scale * (bounds[1][0] + bounds[0][0])) / 2,
       (height - scale * (bounds[1][1] + bounds[0][1])) / 2,
     ];
-    console.log("Translate:", translate); // Debugging translate
     projection.scale(scale).translate(translate);
+  };
+
+  // ========================
+  // Feature Rendering Logic
+  // ========================
+  const renderFeatures = (features) => {
+    svg.selectAll("*").remove(); // Clear existing map content
+
+    svg
+      .append("g")
+      .attr("class", "map-group")
+      .selectAll("path")
+      .data(features)
+      .enter()
+      .append("path")
+      .attr("d", path)
+      .attr("fill", (d) => {
+        const fillColor = d.properties.fill || "#ccc";
+        d3.select(this).attr("data-original-fill", fillColor); // Save original fill
+        return fillColor;
+      })
+      .attr("stroke", "#333")
+      .on("mouseover", function (event, d) {
+        d3.select(this).attr("fill", "orange");
+        showTooltip(d.properties.name || "Unknown", event);
+      })
+      .on("mouseout", function () {
+        d3.select(this).attr("fill", d3.select(this).attr("data-original-fill"));
+        hideTooltip();
+      });
+  };
+
+  // =======================
+  // Map Data Loading Logic
+  // =======================
+  const loadData = () => {
+    const filteredFeatures = originalFeatures.filter((f) =>
+      (f.properties.name || "").toLowerCase().includes(filter)
+    );
+    renderFeatures(filteredFeatures);
+  };
+
+  const loadMap = (type) => {
+    const url = type === "state" ? stateMapUrl : districtMapUrl;
+
+    d3.json(url)
+      .then((data) => {
+        const features =
+          type === "state"
+            ? data.features
+            : topojson.feature(data, data.objects.nielsen_dma).features;
+
+        if (!features) {
+          console.error("Features could not be extracted from the map data.");
+          return;
+        }
+
+        originalFeatures = features;
+        adjustProjectionToFit({ type: "FeatureCollection", features });
+        renderFeatures(features);
+
+        console.log(`Loaded ${type} map successfully.`);
+      })
+      .catch((error) => {
+        console.error("Error loading map data:", error);
+      });
+  };
+
+  // ==============================
+  // Map Functionality
+  // ==============================
+  document.addEventListener("DOMContentLoaded", () => {
+    const stateButton = document.getElementById("stateButton");
+    const districtButton = document.getElementById("districtButton");
+
+    if (stateButton && districtButton) {
+      stateButton.addEventListener("click", () => toggleMap("state", stateButton, districtButton));
+      districtButton.addEventListener("click", () => toggleMap("dma", districtButton, stateButton));
+    }
+
+    loadMap("state"); // Load initial state map
+  });
+
+  const toggleMap = (type, activeButton, inactiveButton) => {
+    if (currentMapType !== type) {
+      currentMapType = type;
+      loadMap(type);
+      activeButton.classList.add("active");
+      inactiveButton.classList.remove("active");
+    }
   };
 
   // ==================
@@ -85,83 +157,5 @@
 
   const hideTooltip = () => {
     tooltip.style("visibility", "hidden");
-  };
-
-  // ========================
-  // Feature Rendering Logic
-  // ========================
-  const renderFeatures = (features) => {
-    svg.selectAll("*").remove(); // Clear existing map content
-
-    svg
-      .append("g")
-      .attr("class", "map-group")
-      .selectAll("path")
-      .data(features)
-      .enter()
-      .append("path")
-      .attr("d", path)
-      .attr("fill", (d) => d.properties.fill || "#ccc")
-      .attr("stroke", "#333")
-      .on("mouseover", function (event, d) {
-        d3.select(this).attr("fill", "orange");
-        showTooltip(d.properties.name || "Unknown", event);
-      })
-      .on("mouseout", function () {
-        d3.select(this).attr("fill", d3.select(this).attr("data-original-fill"));
-        hideTooltip();
-      });
-  };
-
-  // =======================
-  // Map Data Loading Logic
-  // =======================
-  const loadData = () => {
-    const filteredFeatures = originalFeatures.filter((f) =>
-      f.properties.name.toLowerCase().includes(filter)
-    );
-    renderFeatures(filteredFeatures);
-  };
-
-  const loadMap = (type) => {
-    d3.json(type === "state" ? stateMapUrl : districtMapUrl, (error, data) => {
-      if (error) {
-        console.error("Error loading map data:", error);
-        return;
-      }
-
-      const features =
-        type === "state" ? data.features : topojson.feature(data, data.objects.nielsen_dma).features;
-
-      originalFeatures = features;
-      adjustProjectionToFit({ type: "FeatureCollection", features });
-      renderFeatures(features);
-
-      console.log(`Loading ${type === "state" ? "state map" : "DMA map"}...`);
-    });
-  };
-
-  // ==============================
-  // Map Functionality
-  // ==============================
-  document.addEventListener("DOMContentLoaded", () => {
-    const stateButton = document.getElementById("stateButton");
-    const districtButton = document.getElementById("districtButton");
-
-    if (stateButton && districtButton) {
-      stateButton.addEventListener("click", () => toggleMap("state", stateButton, districtButton));
-      districtButton.addEventListener("click", () => toggleMap("dma", districtButton, stateButton));
-    }
-
-    loadMap("state");
-  });
-
-  const toggleMap = (type, activeButton, inactiveButton) => {
-    if (currentMapType !== type) {
-      currentMapType = type;
-      loadMap(type);
-      activeButton.classList.add("active");
-      inactiveButton.classList.remove("active");
-    }
   };
 })();
