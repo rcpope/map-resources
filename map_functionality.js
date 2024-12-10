@@ -1,31 +1,51 @@
 (() => {
   // ==============================
-  // Global Variables and Constants
-  // ==============================
-  const width = 960;
-  const height = 600;
+// Global Variables and Constants
+// ==============================
+const width = 960, height = 600;
+const stateMapUrl = "https://rcpope.github.io/map-resources/congressional_map.geojson";
+const districtMapUrl = "https://rcpope.github.io/map-resources/neilson_map.geojson";
 
-  const stateMapUrl = "https://rcpope.github.io/map-resources/congressional_map.geojson";
-  const districtMapUrl = "https://rcpope.github.io/map-resources/neilson_map.geojson";
+let currentMapUrl = stateMapUrl; // Default map URL
+let filter = ""; // Filter term for search
 
-  let currentMapUrl = stateMapUrl; // Default map URL
-  let filter = ""; // Filter term for search
+// ========================
+// Projection and Geo Path
+// ========================
+const projection = d3.geoAlbersUsa();
+const path = d3.geoPath().projection(projection);
 
-  // ======================
-  // Initialize SVG Element
-  // ======================
-  const svg = d3
-    .select("#map-container")
-    .append("svg")
-    .attr("width", width)
-    .attr("height", height)
-    .attr("tabindex", 0); // Accessibility enhancement
+// ======================
+// Initialize SVG Element
+// ======================
+const svg = d3
+  .select("#map-container")
+  .append("input")
+    .attr("type", "text")
+    .attr("placeholder", "Filter by state or district")
+    .style("margin", "10px")
+    .style("padding", "5px")
+    .style("width", "90%")
+    .on("input", function () {
+        filter = this.value.toLowerCase();
+        loadData();
+    });
 
-  // ========================
-  // Projection and Geo Path
-  // ========================
-  const projection = d3.geoAlbersUsa().scale(1500).translate([width / 2, height / 2]);
-  const path = d3.geoPath().projection(projection);
+// =========================
+// Adjust Projection to Fit
+// =========================
+const adjustProjectionToFit = (geojsonData) => {
+  const bounds = path.bounds(geojsonData); // Calculate bounds
+  const scale = 0.95 / Math.max(
+    (bounds[1][0] - bounds[0][0]) / width,
+    (bounds[1][1] - bounds[0][1]) / height
+  );
+  const translate = [
+    (width - scale * (bounds[1][0] + bounds[0][0])) / 2,
+    (height - scale * (bounds[1][1] + bounds[0][1])) / 2
+  ];
+  projection.scale(scale).translate(translate);
+};
 
   // ==================
   // Tooltip Management
@@ -68,12 +88,16 @@
       .append("path")
       .attr("class", options.className || "feature")
       .attr("d", path)
-      .attr("fill", (d) => options.fill(d))
+      .attr("fill", (d) => {
+          const fillColor = options.fill(d);
+          d3.select(this).attr("data-original-fill", fillColor); // Set original fill
+          return fillColor;
+      })
       .attr("stroke", options.stroke || "#333")
       .on("mouseover", options.onMouseOver || null)
       .on("mouseout", options.onMouseOut || null)
       .on("click", options.onClick || null);
-  };
+};
 
   // ==========================
   // Event Handlers for Map Data
@@ -109,9 +133,10 @@
   // =======================
   // Map Data Loading Logic
   // =======================
-  const loadData = async () => {
+    const loadData = async () => {
     try {
       const mapData = await d3.json(currentMapUrl);
+      adjustProjectionToFit(mapData); // Adjust projection dynamically
 
       const features = mapData.features || [];
       const options = currentMapUrl === stateMapUrl
