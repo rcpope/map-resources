@@ -4,7 +4,7 @@
   // ==============================
   const width = 960,
     height = 600;
-  const stateMapUrl = "https://rcpope.github.io/map-resources/congressional_map.geojson";
+  const stateMapUrl = "https://rcpope.github.io/map-resources/congressional_map.json";
   const districtMapUrl = "https://rcpope.github.io/map-resources/dma_map.json";
 
   let currentMapType = "state"; // Default map type
